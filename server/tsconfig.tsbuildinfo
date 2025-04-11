@@ -1,0 +1,1 @@
+{"root":["./src/index.ts","./src/apis/arweaveconfig.api.ts","./src/controllers/profilecreation.controller.ts","./src/controllers/signupuser.controller.ts","./src/routes/index.ts","./src/routes/userrounter.ts","./src/services/connectwallet.service.ts","./src/services/generatewallet.service.ts","./src/services/signup.service.ts","./src/types/payload.type.ts"],"version":"5.8.3"}
