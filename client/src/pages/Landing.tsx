@@ -1,13 +1,16 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useArweaveWallet, useDarkMode } from '../utils/util';
-import { createWallet } from '../utils/wallet';
+import { createWallet, userSignIn } from '../utils/wallet';
 import { setUserAddress } from '../redux/slices/arConnectionSlice';
 import { useDispatch } from 'react-redux';
 
 const Landing = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isHovered, setIsHovered] = useState<boolean>(false);
+  const [username, setUsername] = useState('');
+  const [walletAddressInput, setWalletAddressInput] = useState('');
+  const [showSignInModal, setShowSignInModal] = useState(false);
   const navigate = useNavigate();
   const dispatch = useDispatch();
   // Use the custom hooks
@@ -44,6 +47,26 @@ const Landing = () => {
       }
     } catch (error) {
       console.error("Error in wallet creation:", error);
+    }
+  };
+
+  const handleSignIn = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      console.log("Attempting to sign in with:", walletAddressInput, username);
+      const success = await userSignIn(walletAddressInput, username);
+      
+      if (success) {
+        console.log("Sign in successful!");
+        dispatch(setUserAddress(walletAddressInput));
+        setShowSignInModal(false);
+        navigate('/dashboard');
+      } else {
+        alert("Sign in failed. Please check your wallet address and username.");
+      }
+    } catch (error) {
+      console.error("Error during sign in:", error);
+      alert("An error occurred during sign in.");
     }
   };
 
@@ -207,17 +230,81 @@ const Landing = () => {
             </div>
             
             {/* Create new wallet Button */}
-            <div className="mt-16 flex items-center justify-center">
+            <div className="mt-16 flex flex-col md:flex-row items-center justify-center gap-6">
               <button 
                 onClick={handleCreateWallet} 
                 className="px-8 py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold rounded-lg transform transition-all duration-200 hover:scale-105 hover:shadow-xl text-lg min-w-[220px]"
               >
                 Create new wallet
               </button>
+              
+              <button 
+                onClick={() => setShowSignInModal(true)} 
+                className="px-8 py-4 bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-semibold rounded-lg transform transition-all duration-200 hover:scale-105 hover:shadow-xl text-lg min-w-[220px]"
+              >
+                Sign in with wallet
+              </button>
             </div>
           </div>
         </div>
       </div>
+
+      {/* Sign In Modal */}
+      {showSignInModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-md w-full p-6 relative">
+            <button 
+              onClick={() => setShowSignInModal(false)}
+              className="absolute top-4 right-4 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+            
+            <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Sign in with wallet</h3>
+            
+            <form onSubmit={handleSignIn} className="space-y-4">
+              <div>
+                <label htmlFor="walletAddress" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Wallet Address
+                </label>
+                <input
+                  id="walletAddress"
+                  type="text"
+                  value={walletAddressInput}
+                  onChange={(e) => setWalletAddressInput(e.target.value)}
+                  placeholder="Enter your wallet address"
+                  className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  required
+                />
+              </div>
+              
+              <div>
+                <label htmlFor="username" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Username
+                </label>
+                <input
+                  id="username"
+                  type="text"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  placeholder="Enter your username"
+                  className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  required
+                />
+              </div>
+              
+              <button
+                type="submit"
+                className="w-full px-4 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold rounded-lg transform transition-all duration-200 hover:scale-105 hover:shadow-xl"
+              >
+                Sign In
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
