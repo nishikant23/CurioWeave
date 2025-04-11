@@ -1,6 +1,6 @@
 import { arweave } from "../apis/initialiseArweave"
 import { JWKInterface } from 'arweave/node/lib/wallet';
-import { setWalletKey } from "../redux/slices/arConnectionSlice";
+import { setWalletKey, setUserAddress } from "../redux/slices/arConnectionSlice";
 import store from "../redux/store";
 // import fetch from 'node-fetch'; //NOTE THIS LINE CRASHED THE UI NOT VISIBLE TO BROWSER
 
@@ -423,6 +423,211 @@ export const getAllTransactions = async (address: string, limit: number = 10): P
   } catch (error) {
     console.error('Error fetching transactions:', error);
     return [];
+  }
+};
+
+interface Tag {
+  name: string;
+  value: string;
+}
+
+interface TransactionNode {
+  id: string;
+  owner: {
+    address: string;
+  };
+  tags: Tag[];
+  data: {
+    size: string;
+  };
+}
+
+interface TransactionEdge {
+  node: TransactionNode;
+}
+
+interface UserSignInResponse {
+  data: {
+    transactions: {
+      edges: TransactionEdge[];
+    };
+  };
+}
+
+export const userSignIn = async (walletAddress: string, username: string): Promise<boolean> => {
+  try {
+    console.log("Attempting to sign in with:", { walletAddress, username });
+    
+    // Create GraphQL query to find profile transactions with the matching address and username
+    const query = {
+      query: `{
+        transactions(
+          owners: ["${walletAddress}"]
+        ) {
+          edges {
+            node {
+              id
+              owner {
+                address
+              }
+              tags {
+                name
+                value
+              }
+              data {
+                size
+              }
+            }
+          }
+        }
+      }`
+    };
+
+    console.log("Sending GraphQL query to find user:", JSON.stringify(query));
+
+    const response = await fetch('http://localhost:1984/graphql', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(query)
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("GraphQL error response:", errorText);
+      return false;
+    }
+
+    const result = await response.json() as UserSignInResponse;
+    console.log("GraphQL response for user search:", result);
+    
+    if (!result.data?.transactions?.edges) {
+      console.error('Unexpected GraphQL response format:', result);
+      return false;
+    }
+
+    // Helper function to safely get tag value
+    const safeGetTagValue = (str: string): string => {
+      try {
+        // In ArLocal, tags are not base64 encoded
+        return str;
+      } catch (e) {
+        console.log("Using original tag value:", str);
+        return str;
+      }
+    };
+    
+    console.log("Found transactions:", result.data.transactions.edges.length);
+    
+    // Debug: Print all transactions and their tags
+    result.data.transactions.edges.forEach((edge, i) => {
+      console.log(`Transaction ${i}:`, edge.node.id);
+      console.log(`Tags for transaction ${i}:`);
+      edge.node.tags.forEach(tag => {
+        const rawName = tag.name;
+        const rawValue = tag.value;
+        console.log(`- Raw tag: ${rawName} = ${rawValue}`);
+        console.log(`- Processed tag: ${safeGetTagValue(rawName)} = ${safeGetTagValue(rawValue)}`);
+      });
+    });
+
+    // Find transactions that are profile creations
+    const profileTransactions = result.data.transactions.edges.filter((edge: TransactionEdge) => {
+      const tx = edge.node;
+      
+      // Check all tags to find App-Name and Content-Type
+      let isAppNameMatch = false;
+      let isContentTypeMatch = false;
+      
+      for (const tag of tx.tags) {
+        const tagName = safeGetTagValue(tag.name);
+        const tagValue = safeGetTagValue(tag.value);
+        
+        console.log(`Checking tag: ${tagName} = ${tagValue}`);
+        
+        // Check for App-Name tag
+        if (tagName === 'App-Name' || tagName === 'app-name') {
+          if (tagValue === 'CurioWewave') {
+            console.log("Found matching App-Name tag");
+            isAppNameMatch = true;
+          }
+        }
+        
+        // Check for Content-Type tag
+        if (tagName === 'Content-Type' || tagName === 'content-type') {
+          if (tagValue === 'application/json') {
+            console.log("Found matching Content-Type tag");
+            isContentTypeMatch = true;
+          }
+        }
+      }
+      
+      const isProfileTransaction = isAppNameMatch && isContentTypeMatch;
+      console.log(`Transaction ${tx.id} is profile transaction:`, isProfileTransaction);
+      
+      return isProfileTransaction;
+    });
+
+    console.log("Found profile transactions:", profileTransactions.length);
+
+    if (profileTransactions.length === 0) {
+      console.log("No profile transactions found for address:", walletAddress);
+      return false;
+    }
+
+    // For each profile transaction, fetch and check the data
+    for (const txEdge of profileTransactions) {
+      const txId = txEdge.node.id;
+      
+      console.log("Fetching data for transaction:", txId);
+      
+      try {
+        // Fetch the transaction data
+        const arweaveInstance = await arweave;
+        const txData = await arweaveInstance.transactions.getData(txId, {
+          decode: true,
+          string: true
+        });
+        
+        if (!txData) {
+          console.log("No data found for transaction:", txId);
+          continue;
+        }
+        
+        console.log("Transaction data:", txData);
+        
+        try {
+          const profileData = JSON.parse(txData as string);
+          console.log("Parsed profile data:", profileData);
+          
+          // Check if username matches
+          if (profileData.username === username) {
+            console.log("Found matching profile for wallet address and username!");
+            
+            // Update Redux store with the user's address
+            store.dispatch(setUserAddress(walletAddress));
+            
+            return true;
+          } else {
+            console.log("Username doesn't match:", profileData.username, "vs", username);
+          }
+        } catch (parseError) {
+          console.error("Error parsing profile data:", parseError);
+          continue;
+        }
+      } catch (dataError) {
+        console.error("Error fetching transaction data:", dataError);
+        continue;
+      }
+    }
+    
+    // If we got here, no matching profile was found
+    console.log("No matching profile found for the given username and wallet address");
+    return false;
+  } catch (error) {
+    console.error("Error in user sign in:", error);
+    return false;
   }
 };
 
