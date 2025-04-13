@@ -1,6 +1,6 @@
 # CurioWeave
 
-![CurioWeave Logo](https://via.placeholder.com/200?text=CurioWeave)
+[CurioWeave Logo]([https://via.placeholder.com/200?text=CurioWeave](https://drive.google.com/file/d/1lJjLvKlXZlqH5PQnZvVY1QPRK-4DaOvh/view?usp=sharing))
 
 > A decentralized content sharing platform built on Arweave's permanent storage network.
 
@@ -25,8 +25,7 @@ CurioWeave is a decentralized content platform that enables users to share, disc
 
 ## 🖥️ Screenshots
 
-![Screenshot 1](https://via.placeholder.com/600x300?text=CurioWeave+Screenshot+1)
-![Screenshot 2](https://via.placeholder.com/600x300?text=CurioWeave+Screenshot+2)
+[Watch the demo video](https://drive.google.com/file/d/1Nk8bRnpwpIifPCtE0SvoKoXcep3jK-VK/view?usp=sharing)
 
 ## 🚀 Getting Started
 
